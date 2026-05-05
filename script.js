@@ -1,33 +1,24 @@
-
-const localStorageKey = "storedFunctions"
+const localStorageKey = "storedFunctions";
 let functions = 0;
 const newFunctionInput = document.getElementById("newFunctionInput");
 const variableRegex = /<([a-z])>/gm;
 
-/**
- * This function replaces normal math operators and replaces them with operators JS can parse.
- * This should eventually be put in the page where users can add/remove their own.
- * 
- * Current replacements:
- * ^ is the operator for XOR in JS, replaced with ** for proper exponent notation.
- * sqrt() is replaced with Math.sqrt() (do not match .sqrt, otherwise we would add .sqrt to Math.sqrt)
- */
 function manualOverrides(functionString) {
   functionString = functionString.replace(/\^/g, "**");
-  functionString = functionString.replace(/(?<!\.)sqrt/g, "Math.sqrt")
+  functionString = functionString.replace(/(?<!\.)sqrt/g, "Math.sqrt");
   return functionString;
 }
 
 const functions_container = document.getElementById("functions");
+const emptyState = document.getElementById("empty");
+
+function updateEmptyState() {
+  emptyState.style.display = functions_container.children.length === 0 ? "flex" : "none";
+}
 
 function functionInputChanged(id, input, storedFunction, functionString) {
-
-  const [_, changedVar] = input.id.split(":")
-
   const functionPreview = document.getElementById(`${id}:functionpreview`);
   const output = document.getElementById(`${id}:output`);
-
-  let variables = [];
 
   const inputs = document.getElementById(`${id}:inputs`);
   let newFunctionString = functionString;
@@ -47,6 +38,7 @@ function functionInputChanged(id, input, storedFunction, functionString) {
 
 function removeFunction(card, func) {
   card.remove();
+  updateEmptyState();
 
   const stored = [...unpackFunctions()];
   if (!stored) return;
@@ -59,139 +51,136 @@ function removeFunction(card, func) {
 function collpaseArray(array) {
   if (!array || !Array.isArray(array)) return null;
   const flatArray = [];
-  array.forEach(v => { if (!flatArray.includes(v)) flatArray.push(v) });
+  array.forEach(v => { if (!flatArray.includes(v)) flatArray.push(v); });
   return flatArray;
 }
 
 function createCard(storedFunction, functionString, variables, unfilteredFunction) {
   const thisId = functions++;
   const card = document.createElement("div");
-  card.className = "card"
+  card.className = "card";
   card.id = thisId;
-  card.style = "width: 18rem; height: max-content;";
 
-  const card_body = document.createElement("div");
-  card_body.className = "card-body";
+  /* ── header ── */
+  const cardHeader = document.createElement("div");
+  cardHeader.className = "card-header";
 
-  const header = document.createElement("div");
-  header.className = "d-flex flex-row justify-content-between";
-
-  const title = document.createElement("span");
-  title.className = "fw-bolder ms-2";
-  title.style = "height: 100%; margin: auto 0;"
+  const title = document.createElement("div");
+  title.className = "card-title";
+  title.title = functionString;
   title.innerText = functionString;
 
-  const remove = document.createElement("button");
-  remove.className = "btn btn-outline-danger";
-  remove.innerText = "Delete"
+  const removeBtn = document.createElement("button");
+  removeBtn.className = "btn-delete";
+  removeBtn.innerText = "Delete";
+  removeBtn.addEventListener("click", () => removeFunction(card, unfilteredFunction));
 
-  remove.addEventListener("click", () => { removeFunction(card, unfilteredFunction) })
+  cardHeader.appendChild(title);
+  cardHeader.appendChild(removeBtn);
 
-  header.appendChild(title);
-  header.appendChild(remove);
-  // remove.appendChild(remove_icon);
+  /* ── body ── */
+  const cardBody = document.createElement("div");
+  cardBody.className = "card-body";
 
+  /* variable inputs */
   const inputs_container = document.createElement("div");
-  inputs_container.className = "inputs my-2";
   inputs_container.id = `${thisId}:inputs`;
 
-  let functionPreviewString = functionString
+  let functionPreviewString = functionString;
 
   collpaseArray(variables).forEach(v => {
-    const input_group = document.createElement("div");
-    input_group.className = "d-flex flex-row justify-content-between"
+    const row = document.createElement("div");
+    row.className = "var-row";
 
     const label = document.createElement("label");
-    label.htmlFor = `${thisId}${v}`;
+    label.className = "var-label";
+    label.htmlFor = `${thisId}:${v}`;
     label.innerText = v;
 
     const input = document.createElement("input");
     input.type = "text";
-    input.className = "ms-2"
+    input.className = "var-input";
     input.id = `${thisId}:${v}`;
     input.value = 0;
 
     let timeout;
-
     input.addEventListener("input", (ev) => {
       if (timeout) clearTimeout(timeout);
       timeout = setTimeout(() => {
-        functionInputChanged(thisId, ev.target, ev.target.value, functionString)
+        functionInputChanged(thisId, ev.target, ev.target.value, functionString);
       }, 500);
-    })
-    input.addEventListener("change", (ev) => { if (ev.target.value == "") ev.target.value = 0 })
+    });
+    input.addEventListener("change", (ev) => { if (ev.target.value === "") ev.target.value = 0; });
 
-    input_group.appendChild(label);
-    input_group.appendChild(input);
-    inputs_container.appendChild(input_group);
+    row.appendChild(label);
+    row.appendChild(input);
+    inputs_container.appendChild(row);
 
     functionPreviewString = functionPreviewString.replace(new RegExp(v, 'g'), 0);
   });
 
-  const function_preview = document.createElement("span");
-  function_preview.className = "fw-bolder ms-1";
-  function_preview.id = `${thisId}:functionpreview`;
-  function_preview.innerText = functionPreviewString;
+  /* expression preview */
+  const exprPreview = document.createElement("div");
+  exprPreview.className = "expr-preview";
+  exprPreview.id = `${thisId}:functionpreview`;
+  exprPreview.innerText = functionPreviewString;
 
-  const output_container = document.createElement("div");
-  output_container.className = "d-flex flex-column";
+  /* output */
+  const outputRow = document.createElement("div");
+  outputRow.className = "output-row";
 
-  const output_label = document.createElement("div");
-  output_label.htmlFor = `${thisId}:output`;
+  const equals = document.createElement("span");
+  equals.className = "output-equals";
+  equals.innerText = "=";
 
-  const output = document.createElement("input");
-  output.type = "text";
+  const output = document.createElement("div");
+  output.className = "output-value";
   output.id = `${thisId}:output`;
-  output.placeholder = "Output";
-  output.disabled = true;
 
   let initValue;
   try {
-    initValue = storedFunction()
+    initValue = storedFunction();
   } catch (e) {
     removeFunction(card, unfilteredFunction);
+    return;
   }
+  output.innerText = initValue;
 
-  output.value = initValue;
+  outputRow.appendChild(equals);
+  outputRow.appendChild(output);
 
-  output_container.appendChild(output_label);
-  output_container.appendChild(output);
+  cardBody.appendChild(inputs_container);
+  cardBody.appendChild(exprPreview);
+  cardBody.appendChild(outputRow);
 
-  card_body.appendChild(header);
-  card_body.appendChild(inputs_container);
-  card_body.appendChild(function_preview);
-  card_body.appendChild(output_container);
-
-  card.appendChild(card_body);
+  card.appendChild(cardHeader);
+  card.appendChild(cardBody);
 
   functions_container.appendChild(card);
+  updateEmptyState();
 }
 
 function createFunction(value) {
   let f;
-
   let functionString = `${value}`;
-  const variables = []
+  const variables = [];
 
   do {
     f = variableRegex.exec(value);
     if (f) {
       variables.push(f[1]);
-      functionString = functionString.replace(new RegExp(f[0].replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), f[1])
+      functionString = functionString.replace(new RegExp(f[0].replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), f[1]);
     }
-  } while (f)
+  } while (f);
 
   const storedFunction = new Function(variables, `return ${manualOverrides(functionString)}`);
-
-  createCard(storedFunction, functionString, variables, value)
+  createCard(storedFunction, functionString, variables, value);
 }
 
 function unpackFunctions() {
   const stored = localStorage.getItem(localStorageKey);
-  if (!stored)
-    return null;
-  const storedArray = JSON.parse(stored);
-  return storedArray;
+  if (!stored) return null;
+  return JSON.parse(stored);
 }
 
 function saveFunction(func) {
@@ -203,30 +192,29 @@ function saveFunction(func) {
 
 function functionExists(func) {
   const stored = unpackFunctions();
-  if (stored && stored.includes(func))
-    return true;
-  return false;
+  return !!(stored && stored.includes(func));
 }
 
 function createFromInput() {
-  const value = newFunctionInput.value;
+  const value = newFunctionInput.value.trim();
   if (!value) return;
   newFunctionInput.value = "";
-  if (functionExists(value)) return; // send error somehow (function already saved)
+  if (functionExists(value)) return;
   saveFunction(value);
   createFunction(value);
 }
 
 function flushLocalStorage() {
   const stored = unpackFunctions();
-  if (stored == null) return;
-  stored.forEach(func => {
-    console.log("Creating: " + func);
-    createFunction(func);
-  });
+  if (stored == null) {
+    updateEmptyState();
+    return;
+  }
+  stored.forEach(func => createFunction(func));
+  updateEmptyState();
 }
 
 flushLocalStorage();
 
-const newFunction = document.getElementById("new");
-newFunction.addEventListener("click", createFromInput);
+document.getElementById("new").addEventListener("click", createFromInput);
+newFunctionInput.addEventListener("keydown", (e) => { if (e.key === "Enter") createFromInput(); });
