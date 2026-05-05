@@ -26,14 +26,18 @@ function functionInputChanged(id, input, storedFunction, functionString) {
   for (let i = 0; i < inputs.children.length; i++) {
     const child = inputs.children.item(i).children.item(1);
     const [_, childVar] = child.id.split(":");
-    newFunctionString = newFunctionString.toString().replace(new RegExp(childVar, 'g'), child.value);
+    newFunctionString = newFunctionString.toString().replace(
+      new RegExp(`<${childVar}>`, 'g'),
+      child.value
+    );
   }
 
   functionPreview.innerText = newFunctionString;
   const fixedFunction = manualOverrides(newFunctionString);
   const newFunction = new Function(`return ${fixedFunction}`);
   const out = newFunction();
-  output.value = out;
+  console.log(out);
+  output.innerText = out;
 }
 
 function removeFunction(card, func) {
@@ -116,7 +120,7 @@ function createCard(storedFunction, functionString, variables, unfilteredFunctio
     row.appendChild(input);
     inputs_container.appendChild(row);
 
-    functionPreviewString = functionPreviewString.replace(new RegExp(v, 'g'), 0);
+    functionPreviewString = functionPreviewString.replace(new RegExp(`<${v}>`, 'g'), 0);
   });
 
   /* expression preview */
@@ -141,6 +145,7 @@ function createCard(storedFunction, functionString, variables, unfilteredFunctio
   try {
     initValue = storedFunction();
   } catch (e) {
+    // If the storedFunction fails, the function is likely improper - remove it.
     removeFunction(card, unfilteredFunction);
     return;
   }
@@ -162,18 +167,21 @@ function createCard(storedFunction, functionString, variables, unfilteredFunctio
 
 function createFunction(value) {
   let f;
-  let functionString = `${value}`;
   const variables = [];
 
   do {
     f = variableRegex.exec(value);
-    if (f) {
-      variables.push(f[1]);
-      functionString = functionString.replace(new RegExp(f[0].replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), f[1]);
-    }
+    if (f) variables.push(f[1]);
   } while (f);
 
-  const storedFunction = new Function(variables, `return ${manualOverrides(functionString)}`);
+  const functionString = value;
+
+  let compiledString = value;
+  variables.forEach(v => {
+    compiledString = compiledString.replace(new RegExp(`<${v}>`, 'g'), v);
+  });
+
+  const storedFunction = new Function(variables, `return ${manualOverrides(compiledString)}`);
   createCard(storedFunction, functionString, variables, value);
 }
 
